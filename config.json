@@ -1,0 +1,12 @@
+{
+  "data": {
+    "training_data": "./training_sample.csv",
+    "test_data": "./test_sample.csv"
+  },
+  "learning": {
+    "rate": 0.00001,
+    "min_error": 0.001,
+    "max_iterations": 100,
+    "is_logistic": true
+  }
+}
