@@ -4,9 +4,9 @@
     "test_data": "./test_sample.csv"
   },
   "learning": {
-    "rate": 0.00001,
-    "min_error": 0.001,
-    "max_iterations": 100,
+    "rate": 1,
+    "min_error": 3,
+    "max_iterations": 1000,
     "is_logistic": true
   }
 }
