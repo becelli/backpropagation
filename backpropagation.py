@@ -1,16 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+from scipy.special import expit as logistic
 from config import Config
 
 
 def choose_curve(is_logistic: bool) -> tuple:
     if is_logistic:
         def fx_logistic(x: np.ndarray) -> np.ndarray:
-            return 1.0/(1.0 + np.exp(-x))
+            return logistic(x)
 
         def dfx_logistic(x: np.ndarray) -> np.ndarray:
-            return fx_logistic(x)*(1 - fx_logistic(x))
+            return logistic(x)*(1 - logistic(x))
 
         return fx_logistic, dfx_logistic
 
