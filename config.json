@@ -7,6 +7,6 @@
     "rate": 1,
     "min_error": 3,
     "max_iterations": 1000,
-    "is_logistic": true
+    "is_logistic": false
   }
 }
