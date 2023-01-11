@@ -50,9 +50,9 @@ class Application(QMainWindow):
         self.num_classes: int = 0
         self.num_features: int = 0
         self.num_hidden: int = 0
-        self.learning_rate: np.float64 = 0.001
+        self.learning_rate: np.float64 = 7
         self.is_logistic: bool = True
-        self.max_iterations: int = 1500
+        self.max_iterations: int = 200
         self.max_error: np.float64 = 0.01
         self.stop_by_error: bool = False
         self.conv_matrix: np.ndarray = np.array([])
@@ -75,7 +75,7 @@ class Application(QMainWindow):
     def select_training_file(self):
         try:
             self.train_inputs, self.train_classes, self.num_classes, self.num_features, self.num_hidden = read_sample(
-                self)
+                self, debug=True)
             self.set_label_training_metadata(
                 self.train_inputs.shape[0], self.num_features, self.num_classes)
             self.text_hidden.setText(str(self.num_hidden))
@@ -86,7 +86,7 @@ class Application(QMainWindow):
     def select_testing_file(self):
         try:
             self.test_inputs, self.test_classes, self.num_classes, self.num_features, self.num_hidden = read_sample(
-                self)
+                self, debug=False)
             self.set_label_testing_metadata(
                 self.test_inputs.shape[0], self.num_features, self.num_classes)
 
@@ -158,12 +158,13 @@ class Application(QMainWindow):
             num_features=self.num_features,
             num_hidden=self.num_hidden,
             rate=self.learning_rate,
-            stop_value=self.max_error if self.stop_by_error else self.max_iterations,
+            stop_value=self.max_error if self.stop_by_error else 100 * self.max_iterations,
             is_logistic=self.is_logistic,
             stop_by_error=self.stop_by_error,
         )
-        QMessageBox.information(
-            self, "Aviso", "A rede foi treinada com sucesso")
+        # QMessageBox.information(
+        #     self, "Aviso", "A rede foi treinada com sucesso")
+        self.test()
 
     def test(self):
         if self.output_weights.shape[0] == 0 or self.hidden_weights.shape[0] == 0:

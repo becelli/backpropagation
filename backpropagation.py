@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import expit as logistic
+from numba import njit, jit
 
 
 def choose_curve(is_logistic: bool) -> tuple[callable, callable]:
@@ -32,9 +33,9 @@ def init_weights(num_classes: int, num_features: int, num_hidden: int) -> tuple[
     num_outputs = num_classes
     # number of hidden neurons (geometry mean of inputs and outputs)
     # initialize the weights
-    hidden_weight = np.random.rand(num_inputs, num_hidden) / 1000
+    hidden_weight = np.random.rand(num_inputs, num_hidden) / 100
     # Choose between the options -1 and  1
-    output_weight = np.random.rand(num_hidden, num_outputs) / 1000
+    output_weight = np.random.rand(num_hidden, num_outputs) / 100
 
     return hidden_weight, output_weight
 
@@ -81,6 +82,8 @@ def forward(
     output_layer = fx(np.dot(hidden_layer, output_weight))
     return hidden_layer, output_layer
 
+#
+
 
 def backward(
     dfx: callable,
@@ -94,18 +97,16 @@ def backward(
 ):
     # Calculates the errors of each layer
 
-    errors = np.subtract(expected, attained)
-    output_delta = np.multiply(errors, dfx(attained))
+    output_error = expected - attained
+    output_delta = output_error * dfx(attained)
 
-    hidden_errors = np.dot(output_delta, output_weight.T)
-    hidden_delta = np.multiply(hidden_errors, dfx(hidden_layer))
+    hidden_errors = output_delta @ output_weight.T
+    hidden_delta = hidden_errors * dfx(hidden_layer)
 
-    hidden_weight = np.add(hidden_weight, np.dot(
-        inputs.T, hidden_delta) * rate)
-    output_weight = np.add(output_weight, np.dot(
-        hidden_layer.T, output_delta) * rate)
+    new_hidden_weight = hidden_weight + (inputs.T @ hidden_delta) * rate
+    new_output_weight = output_weight + (hidden_layer.T @ output_delta) * rate
 
-    return hidden_weight, output_weight
+    return new_hidden_weight, new_output_weight
 
 
 def iterate(fx: callable,
@@ -114,24 +115,25 @@ def iterate(fx: callable,
             expected_values: np.ndarray,
             rate: np.float64,
             hidden_weight: np.ndarray,
-            output_weight: np.ndarray
+            output_weight: np.ndarray,
+            batch_size: int = 5
             ):
 
-    new_hidden_layer, new_output_layer = forward(
-        fx, inputs, hidden_weight, output_weight)
+    # Update weights on every sample that it processes
+    n_samples = inputs.shape[0]
+    batch_size = n_samples
 
-    new_hidden_weight, new_output_weight = backward(
-        dfx,
-        expected_values,
-        new_output_layer,
-        inputs,
-        new_hidden_layer,
-        hidden_weight,
-        output_weight,
-        rate,
-    )
+    for i in range(0, n_samples, batch_size):
+        mini_inputs = inputs[i:i + batch_size]
+        mini_expected = expected_values[i:i + batch_size]
 
-    return new_hidden_weight, new_output_weight, new_hidden_layer, new_output_layer
+        hidden_layer, output_layer = forward(
+            fx, mini_inputs, hidden_weight, output_weight)
+
+        hidden_weight, output_weight = backward(
+            dfx, mini_expected, output_layer, mini_inputs, hidden_layer, hidden_weight, output_weight, rate)
+
+    return hidden_weight, output_weight, hidden_layer, output_layer
 
 
 def train(
@@ -144,6 +146,8 @@ def train(
     is_logistic: bool,
     stop_by_error: bool,
     stop_value,
+
+
 ) -> tuple:
 
     # initialize the weights
@@ -170,6 +174,11 @@ def train(
         for _ in range(stop_value):
             hidden_weight, output_weight, _, _ = iterate(
                 fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
+
+    print("Training finished")
+
+    print("Hidden weights: ", hidden_weight)
+    print("Output weights: ", output_weight)
 
     return hidden_weight, output_weight
 

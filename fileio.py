@@ -18,33 +18,36 @@ def normalize(sample: np.ndarray) -> np.ndarray:
     return normalized
 
 
-def read_sample(window) -> tuple[np.ndarray, np.ndarray, int, int, int]:
-    testing_file = QFileDialog.getOpenFileName(
-        window, "Selecinar amostra", "", "CSV Files (*.csv)")
-    filename = testing_file[0]
+def read_sample(window, debug) -> tuple[np.ndarray, np.ndarray, int, int, int]:
+    if debug:
+        filename = "treinamento.csv"
+    else:
+        filename = "teste.csv"
+        # testing_file = QFileDialog.getOpenFileName(
+        #     window, "Selecinar amostra", "", "CSV Files (*.csv)")
+        # filename = testing_file[0]
 
     try:
-        with open(filename) as f:
 
-            # Read csv with header (first row is the header)
-            data: np.ndarray = np.genfromtxt(
-                filename, delimiter=',', skip_header=1)
+        # Read csv with header (first row is the header)
+        data: np.ndarray = np.genfromtxt(
+            filename, delimiter=',', skip_header=1)
 
-            values = data
-            np.random.shuffle(values)
+        values = data
+        np.random.shuffle(values)
 
-            # Get the inputs and classes
-            inputs: np.ndarray = data[:, :-1]
-            inputs = normalize(inputs)
-            classes: np.ndarray = data[:, -1]
+        # Get the inputs and classes
+        inputs: np.ndarray = data[:, :-1]
+        inputs = normalize(inputs)
+        classes: np.ndarray = data[:, -1]
 
-            # Get the number of classes and features
-            num_classes = np.unique(classes).size
-            num_features = inputs.shape[1]
+        # Get the number of classes and features
+        num_classes = np.unique(classes).size
+        num_features = inputs.shape[1]
 
-            num_hidden = suggest_numof_hidden(num_features, num_classes)
+        num_hidden = suggest_numof_hidden(num_features, num_classes)
 
-            return inputs, classes, num_classes, num_features, num_hidden
+        return inputs, classes, num_classes, num_features, num_hidden
     except Exception as e:
         print(e)
         raise e
