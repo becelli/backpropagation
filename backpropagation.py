@@ -1,3 +1,4 @@
+import time
 import numpy as np
 
 import sys
@@ -7,8 +8,8 @@ def choose_curve(is_sigmoid: bool) -> tuple[callable, callable]:
     # Returns the activation function and its derivative
     if is_sigmoid:
         def fx_sigmoid(x: np.ndarray) -> np.ndarray:
-            return np.exp(-np.logaddexp(0, -x)) * 2 - 1
-            # return (1 / (1 + np.exp(-x))) * 2 - 1
+            # The same as (1 / (1 + np.exp(-x))) * 2 - 1
+            return np.subtract(np.multiply(np.exp(-np.logaddexp(0, -x)), 2), 1)
 
         def dfx_sigmoid(x: np.ndarray) -> np.ndarray:
             sigmoid = fx_sigmoid(x)
@@ -48,8 +49,6 @@ def get_expected_values(is_sigmoid, classes, num_classes) -> np.ndarray:
 
     # Logistic functions
     if is_sigmoid:
-        # matrix: np.ndarray = np.zeros((classes.size, num_classes), dtype=int)
-        # matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
         matrix = np.full((classes.size, num_classes), -1, dtype=np.float64)
         matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
         return matrix
@@ -58,21 +57,6 @@ def get_expected_values(is_sigmoid, classes, num_classes) -> np.ndarray:
     matrix: np.ndarray = np.full((classes.size, num_classes), -1, dtype=int)
     matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
     return matrix
-
-
-def calc_output_error(d_fx: callable,
-                      weights: np.ndarray,
-                      expected: np.ndarray,
-                      hidden_output: np.ndarray,
-                      attained: np.ndarray
-                      ):
-    # calc the error for the output layer
-    errors = expected - attained
-    return errors * d_fx(attained)
-
-
-def net_error(error_output: np.ndarray) -> float:
-    return np.square(error_output).sum() / 2
 
 
 def assign_classes(output: np.ndarray) -> np.ndarray:
@@ -169,21 +153,24 @@ def train(
     expected = get_expected_values(is_sigmoid, classes, num_classes)
 
     # Train the network
-    if stop_by_error:
-        network_error = sys.maxsize
-        while network_error > stop_value:
-            hidden_weight, output_weight, hidden_layer, output_layer = iterate(
+    if not stop_by_error:
+        for _ in range(stop_value):
+            hidden_weight, output_weight, _, _ = iterate(
                 fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
-
-            new_error = calc_output_error(
-                dfx, output_weight, expected, hidden_layer, output_layer)
-
-            network_error = net_error(new_error)
-    for _ in range(stop_value):
-        hidden_weight, output_weight, _, _ = iterate(
-            fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
+    else:
+        error = stop_value + 1
+        while error > stop_value:
+            hidden_weight, output_weight, _, output_layer = iterate(
+                fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
+            error = net_error(expected, output_layer)
 
     return hidden_weight, output_weight
+
+
+def net_error(expected: np.ndarray, output: np.ndarray) -> np.float64:
+    error = np.sum(np.power(expected - output, 2)) / 2
+    print(error)
+    return error
 
 
 def test(

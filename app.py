@@ -14,8 +14,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLineEdit,
     QComboBox,
-
+    QTableWidgetItem,
+    QTableWidget,
+    QAbstractItemView,
 )
+from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtGui import (
     QPixmap,
     QImage,
@@ -28,10 +31,11 @@ from PySide6.QtGui import (
     QBrush,
     QColor,
     QRegularExpressionValidator,
-    QAction
+    QAction,
+
 )
 
-from PySide6.QtCore import Qt, QRegularExpression
+from PySide6.QtCore import Qt, QRegularExpression, QUrl
 from fileio import read_sample
 from backpropagation import train, test
 import os
@@ -56,7 +60,7 @@ class Application(QMainWindow):
         self.max_iterations: int = 100
         self.max_error: np.float64 = 0.01
         self.stop_by_error: bool = False
-        self.conv_matrix: np.ndarray = np.array([])
+        self.conv_matrix: np.ndarray = np.ones((5, 5))
 
         self.float_validator = QRegularExpressionValidator(
             QRegularExpression(r"[-]?\d*\.?\d*"))
@@ -159,6 +163,11 @@ class Application(QMainWindow):
                 self, "Aviso", "Os arquivos de entrada ainda não foram carregados")
             return
 
+        self.sound_effect = QSoundEffect()
+        self.sound_effect.setSource(QUrl.fromLocalFile(
+            "end.pys"))
+        self.sound_effect.setVolume(1.0)
+
         self.hidden_weights, self.output_weights = train(
             inputs=self.train_inputs,
             classes=self.train_classes,
@@ -170,15 +179,22 @@ class Application(QMainWindow):
             is_sigmoid=self.is_sigmoid,
             stop_by_error=self.stop_by_error,
         )
-        # QMessageBox.information(
-        #     self, "Aviso", "A rede foi treinada com sucesso")
-        self.test()
+
+        self.sound_effect.play()
+
+        QMessageBox.information(
+            self, "Aviso", "A rede foi treinada com sucesso")
 
     def test(self):
         if self.output_weights.shape[0] == 0 or self.hidden_weights.shape[0] == 0:
             QMessageBox.warning(
                 self, "Aviso", "A rede ainda não foi treinada")
             return
+
+        self.sound_effect_test = QSoundEffect()
+        self.sound_effect_test.setSource(QUrl.fromLocalFile(
+            "success.pys"))
+        self.sound_effect_test.setVolume(1.0)
 
         self.conv_matrix = test(
             inputs=self.test_inputs,
@@ -188,9 +204,12 @@ class Application(QMainWindow):
             hidden_weight=self.hidden_weights,
             output_weight=self.output_weights,
         )
-        print('\n', self.conv_matrix)
 
-        # gen_confusion_matrix_picture(self.conv_matrix)
+        print(self.conv_matrix)
+
+        diag = np.diag(np.diag(self.conv_matrix))
+        if (diag == self.conv_matrix).all():
+            self.sound_effect_test.play()
 
     def show_training_section(self):
         # 2nd group: training parameters
@@ -303,23 +322,30 @@ class Application(QMainWindow):
 
     def show_testing_section(self):
         # 3rd group: testing parameters
-        self.testing_group = QGroupBox("Parâmetros de teste")
+        self.testing_group = QGroupBox("Teste da amostra")
 
         # Buttons
         self.button_test = QPushButton("Testar")
         self.button_test.clicked.connect(self.test)
-        self.generate_convolution_matrix()
-        self.image_test = QLabel()
 
-        # Layout
+        self.matrix = QTableWidget(self.num_hidden, self.num_hidden)
+        self.matrix.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.matrix.setShowGrid(False)
+        self.matrix.horizontalHeader().hide()
+        self.matrix.verticalHeader().hide()
+        self.update_matrix(self.conv_matrix)
+
+        self.matrix.itemChanged.connect(self.update_matrix)
+
+    #     # Layout
         self.grid.addWidget(self.testing_group, 0, 2, 1, 1)
         self.testing_layout = QGridLayout(self.testing_group)
-        self.testing_layout.addWidget(self.button_test, 0, 0, 1, 1)
+        self.testing_layout.addWidget(self.matrix, 0, 0, 1, 2)
+        self.testing_layout.addWidget(self.button_test, 1, 0, 1, 2)
 
-    def generate_convolution_matrix(self):
-        # matrix = np.zeros((self.num_hidden, self.num_hidden))
-        # as_list = [[1, 2], [3, 4]]
-        pass
-        # plt.pcolor(as_list, cmap=plt.cm.Blues)
-        # plt.colorbar()
-        # plt.savefig("convolution_matrix.png")
+    def update_matrix(self, new_matrix: np.ndarray):
+        for i in range(self.num_hidden):
+            for j in range(self.num_hidden):
+                self.matrix.setItem(
+                    i, j, QTableWidgetItem(str(new_matrix[i, j])))
+                self.matrix.item(i, j).setTextAlignment(Qt.AlignCenter)
