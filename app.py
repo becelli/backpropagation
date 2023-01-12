@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QTableWidget,
     QAbstractItemView,
+    QHeaderView,
 )
 from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtGui import (
@@ -32,13 +33,12 @@ from PySide6.QtGui import (
     QColor,
     QRegularExpressionValidator,
     QAction,
-
 )
+
 
 from PySide6.QtCore import Qt, QRegularExpression, QUrl
 from fileio import read_sample
 from backpropagation import train, test
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -54,13 +54,14 @@ class Application(QMainWindow):
         self.test_classes: np.ndarray = np.array([])
         self.num_classes: int = 0
         self.num_features: int = 0
-        self.num_hidden: int = 0
+        self.num_hidden: int = 5
         self.learning_rate: np.float64 = 1
         self.is_sigmoid: bool = True
         self.max_iterations: int = 100
         self.max_error: np.float64 = 0.01
         self.stop_by_error: bool = False
-        self.conv_matrix: np.ndarray = np.ones((5, 5))
+        self.conv_matrix: np.ndarray = np.zeros(
+            (self.num_hidden, self.num_hidden))
 
         self.float_validator = QRegularExpressionValidator(
             QRegularExpression(r"[-]?\d*\.?\d*"))
@@ -85,12 +86,17 @@ class Application(QMainWindow):
         self.move(frame_geometry.topLeft())
 
     def select_training_file(self):
+
         try:
             self.train_inputs, self.train_classes, self.num_classes, self.num_features, self.num_hidden = read_sample(
                 self)
             self.set_label_training_metadata(
                 self.train_inputs.shape[0], self.num_features, self.num_classes)
             self.text_hidden.setText(str(self.num_hidden))
+            # set the the table to be self.num_hidden x self.num_hidden
+            self.table_conv.setRowCount(self.num_hidden)
+            self.table_conv.setColumnCount(self.num_hidden)
+
         except Exception:
             QMessageBox.warning(
                 self, "Aviso", "As amostras de treinamento não foram atualizadas")
@@ -191,6 +197,11 @@ class Application(QMainWindow):
                 self, "Aviso", "A rede ainda não foi treinada")
             return
 
+        if self.test_inputs.shape[0] == 0:
+            QMessageBox.warning(
+                self, "Aviso", "Os arquivos de entrada ainda não foram carregados")
+            return
+
         self.sound_effect_test = QSoundEffect()
         self.sound_effect_test.setSource(QUrl.fromLocalFile(
             "success.pys"))
@@ -205,11 +216,11 @@ class Application(QMainWindow):
             output_weight=self.output_weights,
         )
 
-        print(self.conv_matrix)
-
         diag = np.diag(np.diag(self.conv_matrix))
         if (diag == self.conv_matrix).all():
             self.sound_effect_test.play()
+
+        self.update_table(self.conv_matrix)
 
     def show_training_section(self):
         # 2nd group: training parameters
@@ -328,24 +339,34 @@ class Application(QMainWindow):
         self.button_test = QPushButton("Testar")
         self.button_test.clicked.connect(self.test)
 
-        self.matrix = QTableWidget(self.num_hidden, self.num_hidden)
-        self.matrix.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.matrix.setShowGrid(False)
-        self.matrix.horizontalHeader().hide()
-        self.matrix.verticalHeader().hide()
-        self.update_matrix(self.conv_matrix)
+        self.table_conv = QTableWidget(self.num_hidden, self.num_hidden)
+        self.table_conv.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # self.table_conv.setShowGrid(False)
+        self.table_conv.horizontalHeader().hide()
+        self.table_conv.verticalHeader().hide()
+        self.table_conv.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch)
+        self.table_conv.verticalHeader().setSectionResizeMode(
+            QHeaderView.Stretch)
+        self.table_conv.setFixedSize(200, 200)
+        for i in range(self.num_hidden):
+            for j in range(self.num_hidden):
+                if self.table_conv.item(i, j) is None:
+                    self.table_conv.setItem(
+                        i, j, QTableWidgetItem("0"))
 
-        self.matrix.itemChanged.connect(self.update_matrix)
+        self.update_table(self.conv_matrix)
 
     #     # Layout
         self.grid.addWidget(self.testing_group, 0, 2, 1, 1)
         self.testing_layout = QGridLayout(self.testing_group)
-        self.testing_layout.addWidget(self.matrix, 0, 0, 1, 2)
+        self.testing_layout.addWidget(self.table_conv, 0, 0, 1, 2)
         self.testing_layout.addWidget(self.button_test, 1, 0, 1, 2)
 
-    def update_matrix(self, new_matrix: np.ndarray):
+    def update_table(self, new_matrix: np.ndarray):
         for i in range(self.num_hidden):
             for j in range(self.num_hidden):
-                self.matrix.setItem(
-                    i, j, QTableWidgetItem(str(new_matrix[i, j])))
-                self.matrix.item(i, j).setTextAlignment(Qt.AlignCenter)
+                item = str(int(new_matrix[i, j]))
+                self.table_conv.item(i, j).setText(item)
+
+        self.table_conv.item(i, j).setTextAlignment(Qt.AlignCenter)

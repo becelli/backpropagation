@@ -8,8 +8,7 @@ def choose_curve(is_sigmoid: bool) -> tuple[callable, callable]:
     # Returns the activation function and its derivative
     if is_sigmoid:
         def fx_sigmoid(x: np.ndarray) -> np.ndarray:
-            # The same as (1 / (1 + np.exp(-x))) * 2 - 1
-            return np.subtract(np.multiply(np.exp(-np.logaddexp(0, -x)), 2), 1)
+            return np.exp(-np.logaddexp(-x, 0)) * 2 - 1
 
         def dfx_sigmoid(x: np.ndarray) -> np.ndarray:
             sigmoid = fx_sigmoid(x)
@@ -113,6 +112,12 @@ def iterate(fx: callable,
     n_samples = inputs.shape[0]
     new_hidden_weight = hidden_weight
     new_output_weight = output_weight
+
+    joined = np.hstack((inputs, expected))
+    np.random.shuffle(joined)
+    inputs = joined[:, :-expected.shape[1]]
+    expected = joined[:, -expected.shape[1]:]
+
     # batch_size = n_samples
 
     for i in range(n_samples):
@@ -168,9 +173,10 @@ def train(
 
 
 def net_error(expected: np.ndarray, output: np.ndarray) -> np.float64:
-    error = np.sum(np.power(expected - output, 2)) / 2
-    print(error)
-    return error
+    # Calculates the error of the network
+    error = expected - output
+    mean = np.mean(error, axis=1).sum()
+    return np.sum(np.square(mean)) / 2
 
 
 def test(

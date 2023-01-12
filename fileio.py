@@ -28,10 +28,9 @@ def read_sample(window) -> tuple[np.ndarray, np.ndarray, int, int, int]:
 
         # Read csv with header (first row is the header)
         data: np.ndarray = np.genfromtxt(
-            filename, delimiter=',', skip_header=1)
+            filename, delimiter=',', skip_header=1, dtype=np.float64)
 
-        values = data
-        np.random.shuffle(values)
+        np.random.shuffle(data)
 
         # Get the inputs_norm and classes
         input_raw: np.ndarray = data[:, :-1]
@@ -46,4 +45,4 @@ def read_sample(window) -> tuple[np.ndarray, np.ndarray, int, int, int]:
 
         return inputs_norm, classes, num_classes, num_features, num_hidden
     except:
-        print('Houve uma falha ao ler o arquivo de amostras')
+        pass
