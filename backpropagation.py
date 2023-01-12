@@ -1,19 +1,20 @@
 import numpy as np
-from scipy.special import expit as logistic
-from numba import njit, jit
+
+import sys
 
 
-def choose_curve(is_logistic: bool) -> tuple[callable, callable]:
+def choose_curve(is_sigmoid: bool) -> tuple[callable, callable]:
     # Returns the activation function and its derivative
-    if is_logistic:
-        def fx_logistic(x: np.ndarray) -> np.ndarray:
-            # return 1.0 / (1.0 + np.exp(-x))
-            return logistic(x)
+    if is_sigmoid:
+        def fx_sigmoid(x: np.ndarray) -> np.ndarray:
+            return np.exp(-np.logaddexp(0, -x)) * 2 - 1
+            # return (1 / (1 + np.exp(-x))) * 2 - 1
 
-        def dfx_logistic(x: np.ndarray) -> np.ndarray:
-            return fx_logistic(x) * (1 - fx_logistic(x))
+        def dfx_sigmoid(x: np.ndarray) -> np.ndarray:
+            sigmoid = fx_sigmoid(x)
+            return 0.5 * (1 + sigmoid) * (1 - sigmoid)
 
-        return fx_logistic, dfx_logistic
+        return fx_sigmoid, dfx_sigmoid
 
     else:
         def fx_tanh(x: np.ndarray) -> np.ndarray:
@@ -28,46 +29,55 @@ def choose_curve(is_logistic: bool) -> tuple[callable, callable]:
 def init_weights(num_classes: int, num_features: int, num_hidden: int) -> tuple[np.ndarray, np.ndarray]:
     # Initialize the weights as small random values
     # number of inputs (class features)
-    num_inputs = num_features
+    num_inputs: int = num_features
     # number of output neurons
-    num_outputs = num_classes
-    # number of hidden neurons (geometry mean of inputs and outputs)
-    # initialize the weights
-    hidden_weight = np.random.rand(num_inputs, num_hidden) / 100
-    # Choose between the options -1 and  1
-    output_weight = np.random.rand(num_hidden, num_outputs) / 100
+    num_outputs: int = num_classes
+
+    hidden_weight = np.random.randn(
+        num_inputs, num_hidden) * np.sqrt(2 / (num_inputs + num_hidden))
+
+    output_weight = np.random.randn(
+        num_hidden, num_outputs) * np.sqrt(2 / (num_outputs + num_hidden))
 
     return hidden_weight, output_weight
 
 
-def get_expected_values(is_logistic, classes, num_classes) -> np.ndarray:
+def get_expected_values(is_sigmoid, classes, num_classes) -> np.ndarray:
     # calc the expected output from each neuron of the given layer
     # each layer is described by set of weights of each neuron
 
     # Logistic functions
-    if is_logistic:
-        matrix = np.zeros((classes.size, num_classes), dtype=int)
+    if is_sigmoid:
+        # matrix: np.ndarray = np.zeros((classes.size, num_classes), dtype=int)
+        # matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
+        matrix = np.full((classes.size, num_classes), -1, dtype=np.float64)
         matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
         return matrix
 
     # Hyperbolic tangent
-    matrix = np.full((classes.size, num_classes), -1, dtype=int)
+    matrix: np.ndarray = np.full((classes.size, num_classes), -1, dtype=int)
     matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
     return matrix
 
 
-def calc_output_error(d_fx, weights, expected, hidden_output, attained):
+def calc_output_error(d_fx: callable,
+                      weights: np.ndarray,
+                      expected: np.ndarray,
+                      hidden_output: np.ndarray,
+                      attained: np.ndarray
+                      ):
     # calc the error for the output layer
-    errors = np.subtract(expected, attained)
-    return np.multiply(errors, d_fx(attained))
+    errors = expected - attained
+    return errors * d_fx(attained)
 
 
 def net_error(error_output: np.ndarray) -> float:
-    return np.divide(np.square(error_output).sum(), 2)
+    return np.square(error_output).sum() / 2
 
 
 def assign_classes(output: np.ndarray) -> np.ndarray:
     # Get the neuron that has the greater value.
+    # This neuron is the one that represents the class
     return np.argmax(output, axis=1) + 1
 
 
@@ -76,13 +86,13 @@ def forward(
     inputs: np.ndarray,
     hidden_weight: np.ndarray,
     output_weight: np.ndarray,
+
+
 ):
     # Calculates the outputs of each layer
-    hidden_layer = fx(np.dot(inputs, hidden_weight))
-    output_layer = fx(np.dot(hidden_layer, output_weight))
+    hidden_layer: np.ndarray = fx(np.dot(inputs, hidden_weight))
+    output_layer: np.ndarray = fx(np.dot(hidden_layer, output_weight))
     return hidden_layer, output_layer
-
-#
 
 
 def backward(
@@ -91,49 +101,49 @@ def backward(
     attained: np.ndarray,
     inputs: np.ndarray,
     hidden_layer: np.ndarray,
-    hidden_weight: np.ndarray,
     output_weight: np.ndarray,
-    rate: np.float64,
-):
+) -> tuple[np.ndarray, np.ndarray]:
     # Calculates the errors of each layer
 
     output_error = expected - attained
-    output_delta = output_error * dfx(attained)
+    output_grads = np.dot(hidden_layer.T, output_error)
 
-    hidden_errors = output_delta @ output_weight.T
-    hidden_delta = hidden_errors * dfx(hidden_layer)
+    hidden_errors = np.dot(output_error, output_weight.T) * dfx(
+        hidden_layer)
 
-    new_hidden_weight = hidden_weight + (inputs.T @ hidden_delta) * rate
-    new_output_weight = output_weight + (hidden_layer.T @ output_delta) * rate
+    hidden_grads = np.dot(inputs.T, hidden_errors)
 
-    return new_hidden_weight, new_output_weight
+    return hidden_grads, output_grads
 
 
 def iterate(fx: callable,
             dfx: callable,
             inputs: np.ndarray,
-            expected_values: np.ndarray,
+            expected: np.ndarray,
             rate: np.float64,
             hidden_weight: np.ndarray,
             output_weight: np.ndarray,
-            batch_size: int = 5
             ):
 
     # Update weights on every sample that it processes
     n_samples = inputs.shape[0]
-    batch_size = n_samples
+    new_hidden_weight = hidden_weight
+    new_output_weight = output_weight
+    # batch_size = n_samples
 
-    for i in range(0, n_samples, batch_size):
-        mini_inputs = inputs[i:i + batch_size]
-        mini_expected = expected_values[i:i + batch_size]
-
+    for i in range(n_samples):
+        entry = inputs[i].reshape(1, -1)
+        expec = expected[i].reshape(1, -1)
         hidden_layer, output_layer = forward(
-            fx, mini_inputs, hidden_weight, output_weight)
+            fx, entry, hidden_weight, output_weight)
 
-        hidden_weight, output_weight = backward(
-            dfx, mini_expected, output_layer, mini_inputs, hidden_layer, hidden_weight, output_weight, rate)
+        hidden_grads, output_grads = backward(
+            dfx, expec, output_layer, entry, hidden_layer, output_weight)
 
-    return hidden_weight, output_weight, hidden_layer, output_layer
+        new_hidden_weight += rate * hidden_grads
+        new_output_weight += rate * output_grads
+
+    return new_hidden_weight, new_output_weight, hidden_layer, output_layer
 
 
 def train(
@@ -143,7 +153,7 @@ def train(
     num_features: int,
     num_hidden: int,
     rate: np.float64,
-    is_logistic: bool,
+    is_sigmoid: bool,
     stop_by_error: bool,
     stop_value,
 
@@ -155,12 +165,12 @@ def train(
         num_classes, num_features, num_hidden)
 
     # get the function for the choosen curve
-    fx, dfx = choose_curve(is_logistic)
-    expected = get_expected_values(is_logistic, classes, num_classes)
+    fx, dfx = choose_curve(is_sigmoid)
+    expected = get_expected_values(is_sigmoid, classes, num_classes)
 
     # Train the network
     if stop_by_error:
-        network_error = np.inf
+        network_error = sys.maxsize
         while network_error > stop_value:
             hidden_weight, output_weight, hidden_layer, output_layer = iterate(
                 fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
@@ -169,16 +179,9 @@ def train(
                 dfx, output_weight, expected, hidden_layer, output_layer)
 
             network_error = net_error(new_error)
-
-    else:
-        for _ in range(stop_value):
-            hidden_weight, output_weight, _, _ = iterate(
-                fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
-
-    print("Training finished")
-
-    print("Hidden weights: ", hidden_weight)
-    print("Output weights: ", output_weight)
+    for _ in range(stop_value):
+        hidden_weight, output_weight, _, _ = iterate(
+            fx, dfx, inputs, expected, rate, hidden_weight, output_weight)
 
     return hidden_weight, output_weight
 
@@ -187,13 +190,13 @@ def test(
     inputs: np.ndarray,
     classes: np.ndarray,
     num_classes: int,
-    is_logistic: bool,
+    is_sigmoid: bool,
     hidden_weight: np.ndarray,
     output_weight: np.ndarray,
 ) -> np.ndarray:
 
     # Get the function for the choosen curve
-    fx, _ = choose_curve(is_logistic)
+    fx, _ = choose_curve(is_sigmoid)
 
     # Test the network
     _, output_values = forward(fx, inputs, hidden_weight, output_weight)
@@ -206,6 +209,6 @@ def test(
     # Create the confusion matrix using numpy
     confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
     for i in range(assigned_class.size):
-        confusion_matrix[expected_class[i] - 1][assigned_class[i] - 1] += 1
+        confusion_matrix[expected_class[i] - 1, assigned_class[i] - 1] += 1
 
     return confusion_matrix

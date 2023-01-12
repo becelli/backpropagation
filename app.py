@@ -28,7 +28,7 @@ from PySide6.QtGui import (
     QBrush,
     QColor,
     QRegularExpressionValidator,
-
+    QAction
 )
 
 from PySide6.QtCore import Qt, QRegularExpression
@@ -36,6 +36,7 @@ from fileio import read_sample
 from backpropagation import train, test
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Application(QMainWindow):
@@ -50,9 +51,9 @@ class Application(QMainWindow):
         self.num_classes: int = 0
         self.num_features: int = 0
         self.num_hidden: int = 0
-        self.learning_rate: np.float64 = 7
-        self.is_logistic: bool = True
-        self.max_iterations: int = 200
+        self.learning_rate: np.float64 = 1
+        self.is_sigmoid: bool = True
+        self.max_iterations: int = 100
         self.max_error: np.float64 = 0.01
         self.stop_by_error: bool = False
         self.conv_matrix: np.ndarray = np.array([])
@@ -71,11 +72,18 @@ class Application(QMainWindow):
     def setup(self):
         self.setWindowTitle("Backpropagation")
         self.show_content()
+        self.center_window()
+
+    def center_window(self):
+        frame_geometry = self.frameGeometry()
+        center_point = QGuiApplication.primaryScreen().availableGeometry().center()
+        frame_geometry.moveCenter(center_point)
+        self.move(frame_geometry.topLeft())
 
     def select_training_file(self):
         try:
             self.train_inputs, self.train_classes, self.num_classes, self.num_features, self.num_hidden = read_sample(
-                self, debug=True)
+                self)
             self.set_label_training_metadata(
                 self.train_inputs.shape[0], self.num_features, self.num_classes)
             self.text_hidden.setText(str(self.num_hidden))
@@ -86,7 +94,7 @@ class Application(QMainWindow):
     def select_testing_file(self):
         try:
             self.test_inputs, self.test_classes, self.num_classes, self.num_features, self.num_hidden = read_sample(
-                self, debug=False)
+                self)
             self.set_label_testing_metadata(
                 self.test_inputs.shape[0], self.num_features, self.num_classes)
 
@@ -157,9 +165,9 @@ class Application(QMainWindow):
             num_classes=self.num_classes,
             num_features=self.num_features,
             num_hidden=self.num_hidden,
-            rate=self.learning_rate,
-            stop_value=self.max_error if self.stop_by_error else 100 * self.max_iterations,
-            is_logistic=self.is_logistic,
+            rate=np.float64(self.learning_rate),
+            stop_value=self.max_error if self.stop_by_error else self.max_iterations,
+            is_sigmoid=self.is_sigmoid,
             stop_by_error=self.stop_by_error,
         )
         # QMessageBox.information(
@@ -176,7 +184,7 @@ class Application(QMainWindow):
             inputs=self.test_inputs,
             classes=self.test_classes,
             num_classes=self.num_classes,
-            is_logistic=self.is_logistic,
+            is_sigmoid=self.is_sigmoid,
             hidden_weight=self.hidden_weights,
             output_weight=self.output_weights,
         )
@@ -273,7 +281,7 @@ class Application(QMainWindow):
             pass
 
     def set_activation(self, event):
-        self.is_logistic = event == 0
+        self.is_sigmoid = event == 0
 
     def set_stop(self, event):
         self.stop_by_error = event == 0
@@ -300,9 +308,18 @@ class Application(QMainWindow):
         # Buttons
         self.button_test = QPushButton("Testar")
         self.button_test.clicked.connect(self.test)
-
+        self.generate_convolution_matrix()
         self.image_test = QLabel()
+
         # Layout
         self.grid.addWidget(self.testing_group, 0, 2, 1, 1)
         self.testing_layout = QGridLayout(self.testing_group)
         self.testing_layout.addWidget(self.button_test, 0, 0, 1, 1)
+
+    def generate_convolution_matrix(self):
+        # matrix = np.zeros((self.num_hidden, self.num_hidden))
+        # as_list = [[1, 2], [3, 4]]
+        pass
+        # plt.pcolor(as_list, cmap=plt.cm.Blues)
+        # plt.colorbar()
+        # plt.savefig("convolution_matrix.png")
