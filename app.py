@@ -93,9 +93,6 @@ class Application(QMainWindow):
             self.set_label_training_metadata(
                 self.train_inputs.shape[0], self.num_features, self.num_classes)
             self.text_hidden.setText(str(self.num_hidden))
-            # set the the table to be self.num_hidden x self.num_hidden
-            self.table_conv.setRowCount(self.num_hidden)
-            self.table_conv.setColumnCount(self.num_hidden)
 
         except Exception:
             QMessageBox.warning(
@@ -339,7 +336,7 @@ class Application(QMainWindow):
         self.button_test = QPushButton("Testar")
         self.button_test.clicked.connect(self.test)
 
-        self.table_conv = QTableWidget(self.num_hidden, self.num_hidden)
+        self.table_conv = QTableWidget(5, 5)
         self.table_conv.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # self.table_conv.setShowGrid(False)
         self.table_conv.horizontalHeader().hide()
@@ -349,8 +346,8 @@ class Application(QMainWindow):
         self.table_conv.verticalHeader().setSectionResizeMode(
             QHeaderView.Stretch)
         self.table_conv.setFixedSize(200, 200)
-        for i in range(self.num_hidden):
-            for j in range(self.num_hidden):
+        for i in range(5):
+            for j in range(5):
                 if self.table_conv.item(i, j) is None:
                     self.table_conv.setItem(
                         i, j, QTableWidgetItem("0"))
@@ -364,8 +361,8 @@ class Application(QMainWindow):
         self.testing_layout.addWidget(self.button_test, 1, 0, 1, 2)
 
     def update_table(self, new_matrix: np.ndarray):
-        for i in range(self.num_hidden):
-            for j in range(self.num_hidden):
+        for i in range(5):
+            for j in range(5):
                 item = str(int(new_matrix[i, j]))
                 self.table_conv.item(i, j).setText(item)
 
