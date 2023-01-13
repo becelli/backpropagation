@@ -50,9 +50,10 @@ def get_expected_values(is_sigmoid, classes, num_classes) -> np.ndarray:
     if is_sigmoid:
         matrix = np.full((classes.size, num_classes), -1, dtype=np.float64)
         matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
+
         return matrix
 
-    # Hyperbolic tangent
+    # Hyperbolic tangentp
     matrix: np.ndarray = np.full((classes.size, num_classes), -1, dtype=int)
     matrix[np.arange(classes.size), classes.astype(int) - 1] = 1
     return matrix

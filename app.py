@@ -1,17 +1,11 @@
 from PySide6.QtWidgets import (
-    QApplication,
     QLabel,
     QMainWindow,
-    QFileDialog,
     QPushButton,
-    QMenu,
-    QColorDialog,
     QWidget,
-    QSizePolicy,
     QGridLayout,
     QMessageBox,
     QGroupBox,
-    QVBoxLayout,
     QLineEdit,
     QComboBox,
     QTableWidgetItem,
@@ -19,20 +13,10 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
 )
-from PySide6.QtMultimedia import QSoundEffect
+
 from PySide6.QtGui import (
-    QPixmap,
-    QImage,
-    QFont,
     QGuiApplication,
-    QMouseEvent,
-    QIcon,
-    QPainter,
-    QPen,
-    QBrush,
-    QColor,
     QRegularExpressionValidator,
-    QAction,
 )
 
 
@@ -40,7 +24,6 @@ from PySide6.QtCore import Qt, QRegularExpression, QUrl
 from fileio import read_sample
 from backpropagation import train, test
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class Application(QMainWindow):
@@ -57,8 +40,8 @@ class Application(QMainWindow):
         self.num_hidden: int = 5
         self.learning_rate: np.float64 = 1
         self.is_sigmoid: bool = True
-        self.max_iterations: int = 100
-        self.max_error: np.float64 = 0.01
+        self.max_iterations: int = 200
+        self.max_error: np.float64 = 0.0001
         self.stop_by_error: bool = False
         self.conv_matrix: np.ndarray = np.zeros(
             (self.num_hidden, self.num_hidden))
@@ -77,6 +60,8 @@ class Application(QMainWindow):
     def setup(self):
         self.setWindowTitle("Backpropagation")
         self.show_content()
+        self.setFixedSize(850, 280)
+
         self.center_window()
 
     def center_window(self):
@@ -111,11 +96,11 @@ class Application(QMainWindow):
 
     def set_label_training_metadata(self, num_samples: int, num_features: int, num_classes: int):
         self.label_training_metadata.setText(
-            f"Existem {num_samples} amostras, {num_features} features e {num_classes} classes para treino")
+            f"Treino: {num_samples} amostras, {num_features} parâmetros e {num_classes} classes")
 
     def set_label_testing_metadata(self, num_samples: int, num_features: int, num_classes: int):
         self.label_testing_metadata.setText(
-            f"Existem {num_samples} amostras, {num_features} features e {num_classes} classes para teste")
+            f"Teste: {num_samples} amostras, {num_features} parâmetros e {num_classes} classes")
 
     def show_content(self):
         # Divide the grid in 3 visual column blocks
@@ -123,6 +108,7 @@ class Application(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.grid = QGridLayout(self.central_widget)
         self.grid.setColumnStretch(1, 3)
+
         self.show_io_section()
         self.show_training_section()
         self.show_testing_section()
@@ -166,11 +152,6 @@ class Application(QMainWindow):
                 self, "Aviso", "Os arquivos de entrada ainda não foram carregados")
             return
 
-        self.sound_effect = QSoundEffect()
-        self.sound_effect.setSource(QUrl.fromLocalFile(
-            "end.pys"))
-        self.sound_effect.setVolume(1.0)
-
         self.hidden_weights, self.output_weights = train(
             inputs=self.train_inputs,
             classes=self.train_classes,
@@ -182,8 +163,6 @@ class Application(QMainWindow):
             is_sigmoid=self.is_sigmoid,
             stop_by_error=self.stop_by_error,
         )
-
-        self.sound_effect.play()
 
         QMessageBox.information(
             self, "Aviso", "A rede foi treinada com sucesso")
@@ -199,11 +178,6 @@ class Application(QMainWindow):
                 self, "Aviso", "Os arquivos de entrada ainda não foram carregados")
             return
 
-        self.sound_effect_test = QSoundEffect()
-        self.sound_effect_test.setSource(QUrl.fromLocalFile(
-            "success.pys"))
-        self.sound_effect_test.setVolume(1.0)
-
         self.conv_matrix = test(
             inputs=self.test_inputs,
             classes=self.test_classes,
@@ -212,11 +186,6 @@ class Application(QMainWindow):
             hidden_weight=self.hidden_weights,
             output_weight=self.output_weights,
         )
-
-        diag = np.diag(np.diag(self.conv_matrix))
-        if (diag == self.conv_matrix).all():
-            self.sound_effect_test.play()
-
         self.update_table(self.conv_matrix)
 
     def show_training_section(self):
@@ -365,5 +334,4 @@ class Application(QMainWindow):
             for j in range(5):
                 item = str(int(new_matrix[i, j]))
                 self.table_conv.item(i, j).setText(item)
-
-        self.table_conv.item(i, j).setTextAlignment(Qt.AlignCenter)
+                self.table_conv.item(i, j).setTextAlignment(Qt.AlignCenter)
